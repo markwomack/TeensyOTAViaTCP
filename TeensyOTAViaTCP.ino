@@ -26,8 +26,8 @@
 // Local includes
 #include "pin_assignments.h"
 #include "constants.h"
-#include "utility.h"
 #include "MyNetworkHub.h"
+#include "OTAHandler.h"
 
 MyNetworkHub networkHub;
 
@@ -93,39 +93,23 @@ void setup() {
 }
 
 void loop() {
+  // Normal processing
   taskManager.update();
 
+  // If there is an OTA, stop everything and process
   if (checkForOTATask.otaIsAvailable()) {
     // do the OTA update
     DebugMsgs.debug().println("OTA available, processing...");
 
+    taskManager.stop();
+    
     WiFiClient tcpClient = checkForOTATask.getTCPClient();
 
-    DebugMsgs.debug().println("Message:");
-    uint32_t lastReadMillis = millis();
-    boolean tcpConnectionIdle = false;
-    while (!tcpConnectionIdle) {
-      if (tcpClient.available() > 0) {
-        DebugMsgs.print((char)tcpClient.read());
-        lastReadMillis = millis();
-      } else {
-        if (millis() - lastReadMillis > 500) {
-          tcpConnectionIdle = true;
-        }
-      }
+    OTAHandler otaHandler;
+
+    if (otaHandler.readOTABinary(tcpClient)) {
+      networkHub.stop();
+      otaHandler.performUpdate();
     }
-    DebugMsgs.debug().println("TCP message completed after timeout");
-    Serial.flush();
-    tcpClient.stop();
-    delay(2000);
-
-    networkHub.stop();
-    
-    DebugMsgs.debug().println("Restarting in 5 seconds");
-    Serial.flush();
-    delay(5000);
-
-    // This isn't final, it just restarts the code by restarting the teensy for testing purposes
-    restartTeensy();
   }
 }

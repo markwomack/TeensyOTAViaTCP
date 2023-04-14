@@ -6,11 +6,6 @@
 #ifndef PIN_ASSIGNMENTS_H
 #define PIN_ASSIGNMENTS_H
 
-#define SPIWIFI_SS  10   // Chip select pin
-#define SPIWIFI_ACK  8   // a.k.a BUSY or READY pin
-#define ESP32_RESETN 9   // Reset pin
-#define ESP32_GPIO0  7
-
 const uint8_t WIFI_GPIO_PIN(7);       // gpio pin used by WiFi
 const uint8_t WIFI_BUSY_PIN(8);       // busy pin used by WiFi
 const uint8_t WIFI_RESET_PIN(9);      // reset pin used by WiFi

@@ -32,7 +32,7 @@ int MyNetworkHub::start(void) {
   pinMode(WIFI_RESET_PIN, OUTPUT);
 
   // Make sure right pins are set for Wifi
-  //WiFi.setPins(WIFI_SPI_CS0_PIN, WIFI_BUSY_PIN, WIFI_RESET_PIN, WIFI_GPIO_PIN);
+  WiFi.setPins(WIFI_SPI_CS0_PIN, WIFI_BUSY_PIN, WIFI_RESET_PIN, WIFI_GPIO_PIN);
 
   DebugMsgs.debug().print("Found firmware ").println(WiFi.firmwareVersion());
 

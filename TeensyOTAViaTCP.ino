@@ -8,7 +8,7 @@
 // library after receiving the new firmware binary via TCP.
 // This example will listen to a TCP port for the data. You can send
 // the data using the following command in Linux (Ubuntu):
-//   netcat -N 192.168.86.33 50005 <data.txt
+//   netcat -N [IP ADDRESS] [PORT] <data.txt
 //  where data.txt is a file that contains the data.
 //
 

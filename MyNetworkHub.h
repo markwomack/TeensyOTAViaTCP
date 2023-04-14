@@ -14,6 +14,7 @@ class MyNetworkHub {
     MyNetworkHub() { /* Nothing to see here, move along. */ }
 
     int start(void);
+    void stop(void);
 
     UDP* getUdpPort(uint32_t portNum);
     WiFiServer* getTCPServer(uint32_t portNum);

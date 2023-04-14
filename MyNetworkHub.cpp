@@ -26,13 +26,25 @@ int MyNetworkHub::start(void) {
   SPI.setMOSI(WIFI_SPI_MOSI0_PIN);
   SPI.setMISO(WIFI_SPI_MISO0_PIN);
   SPI.setSCK(WIFI_SPI_SCK0_PIN);
+  SPI.begin();
+
+  pinMode(WIFI_BUSY_PIN, INPUT);
+  pinMode(WIFI_RESET_PIN, OUTPUT);
 
   // Make sure right pins are set for Wifi
-  WiFi.setPins(WIFI_SPI_CS0_PIN, WIFI_BUSY_PIN, WIFI_RESET_PIN, -1, &SPI);
+  //WiFi.setPins(WIFI_SPI_CS0_PIN, WIFI_BUSY_PIN, WIFI_RESET_PIN, WIFI_GPIO_PIN);
+
+  DebugMsgs.debug().print("Found firmware ").println(WiFi.firmwareVersion());
+
+  DebugMsgs.debug().println("Resetting the AirLift for good measure");
+  digitalWrite(WIFI_RESET_PIN, LOW);
+  delay(1000);
+  digitalWrite(WIFI_RESET_PIN, HIGH);
+  delay(1000);
   
   // check for the WiFi module:
   if (WiFi.status() == WL_NO_MODULE) {
-    DebugMsgs.println("Communication with WiFi module failed!");
+    DebugMsgs.debug().println("Communication with WiFi module failed!");
     return 1;
   }
 
@@ -42,11 +54,11 @@ int MyNetworkHub::start(void) {
   // attempt to connect to Wifi network:
   while (status != WL_CONNECTED) {
     if (attemptsLeft == 0) {
-      DebugMsgs.println("All conection attempts exhausted, failed to connected to wifi");
+      DebugMsgs.debug().println("All conection attempts exhausted, failed to connected to wifi");
       return 1;
     }
     
-    DebugMsgs.print("Attempting to connect to SSID: ").println(ssid);
+    DebugMsgs.debug().print("Attempting to connect to SSID: ").println(ssid);
     // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
     status = WiFi.begin(ssid, pass);
     attemptsLeft--;
@@ -55,33 +67,39 @@ int MyNetworkHub::start(void) {
     delay(10000);
   }
 
-  DebugMsgs.println("Connected to wifi");
+  DebugMsgs.debug().println("Connected to wifi");
   printWifiStatus();
 
   return 0;
 }
 
+void MyNetworkHub::stop(void) {
+  WiFi.end();
+}
+
 UDP* MyNetworkHub::getUdpPort(uint32_t portNum) {
   WiFiUDP* wifiUdp = new WiFiUDP();
   wifiUdp->begin(portNum);
+  DebugMsgs.debug().print("Opened UDP Port: ").println(portNum);
   return wifiUdp;
 }
 
 WiFiServer* MyNetworkHub::getTCPServer(uint32_t portNum) {
   WiFiServer* tcpServer = new WiFiServer(portNum);
   tcpServer->begin();
+  DebugMsgs.debug().print("Opened TCP Port: ").println(portNum);
   return tcpServer;
 }
 
 void printWifiStatus(void) {
   // print the SSID of the network you're attached to:
-  DebugMsgs.print("SSID: ").println(WiFi.SSID());
+  DebugMsgs.debug().print("SSID: ").println(WiFi.SSID());
 
   // print your board's IP address:
   IPAddress ip = WiFi.localIP();
-  DebugMsgs.print("IP Address: ").println(ip);
+  DebugMsgs.debug().print("IP Address: ").println(ip);
 
   // print the received signal strength:
   long rssi = WiFi.RSSI();
-  DebugMsgs.print("signal strength (RSSI):").print(rssi).println(" dBm");
+  DebugMsgs.debug().print("signal strength (RSSI):").print(rssi).println(" dBm");
 }

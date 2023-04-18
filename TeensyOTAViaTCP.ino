@@ -43,9 +43,13 @@
 //     for information on the specific Teensy models it supports.
 //     I have tested it on a Teensy 4.0 and plan to use it on a
 //     Teensy 4.1.
-//   - I included the FlasherX code directly in this example since it
-//     it is not currently pacakged as a library. You may want to
-//     check the FlasherX github for the latest version.
+//   - I included the FlasherX code directly in this example since it 
+//     is not currently pacakged as a library. You may want to check
+//     the FlasherX github for the latest version. The only modification
+//     I had to make on the FlasherX code was to comment out the code
+//     in the update_firmware method that asked for user confirmation
+//     before performing the update. Otherwise everything is the original
+//     code. 
 //   - You'll need to know where the new, compiled code is located
 //     so that you can send it to the Teensy. Fortunately the Teensy
 //     Loader has a File->Open Hex File command that opens to the
@@ -60,7 +64,7 @@
 //       netcat -N [IP ADDRESS OF TEENSY] [TCP PORT OF TEENSY] <[HEX FILE NAME]
 //     For this example, it might look like this:
 //       netcat -N 192.168.86.123 50005 <TeensyOTAViaTCP.ino.hex
-//     Running this command will send the data the Teensy via the TCP
+//     Running this command will send the data to the Teensy via the TCP
 //     port, the Teensy will see it and start the update process.
 //
 //  Caveats:

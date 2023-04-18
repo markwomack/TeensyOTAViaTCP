@@ -3,13 +3,20 @@
 // See accompanying LICENSE file for details.
 //
 
+//
+// This is an implementation of a simple network hub based on
+// a WiFi connection. This version requires the Adafruit version
+// of the Arduino WiFiNINA library since the SPI pins are specified.
+//
+
 // My includes
 #include <DebugMsgs.h>
 
 // Third-party includes
 #include <SPI.h>
-#include <WiFiNINA.h>
+#include <WiFiNINA.h> // https://github.com/arduino-libraries/WiFiNINA
 #include <WiFiUdp.h>
+#include <WiFiServer.h>
 
 // Local includes
 #include "MyNetworkHub.h"
@@ -72,10 +79,10 @@ void MyNetworkHub::stop(void) {
 }
 
 UDP* MyNetworkHub::getUdpPort(uint32_t portNum) {
-  WiFiUDP* wifiUdp = new WiFiUDP();
-  wifiUdp->begin(portNum);
+  WiFiUDP* udp = new WiFiUDP();
+  udp->begin(portNum);
   DebugMsgs.debug().print("Opened UDP Port: ").println(portNum);
-  return wifiUdp;
+  return udp;
 }
 
 WiFiServer* MyNetworkHub::getTCPServer(uint32_t portNum) {

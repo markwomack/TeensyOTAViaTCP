@@ -1,2 +1,0 @@
-This is some data on line 1
-This is some data on line 2

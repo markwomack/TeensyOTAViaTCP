@@ -35,12 +35,6 @@ int MyNetworkHub::start(void) {
   WiFi.setPins(WIFI_SPI_CS0_PIN, WIFI_BUSY_PIN, WIFI_RESET_PIN, WIFI_GPIO_PIN);
 
   DebugMsgs.debug().print("Found firmware ").println(WiFi.firmwareVersion());
-
-  DebugMsgs.debug().println("Resetting the AirLift for good measure");
-  digitalWrite(WIFI_RESET_PIN, LOW);
-  delay(1000);
-  digitalWrite(WIFI_RESET_PIN, HIGH);
-  delay(1000);
   
   // check for the WiFi module:
   if (WiFi.status() == WL_NO_MODULE) {

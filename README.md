@@ -16,19 +16,25 @@ All of the heavy lifting and updating is done by the FlasherX code. The rest of 
 
 Some notes on the implementation and usage:
 
-- I use a couple of my own libraries for printing debug messages ([ArduinoLoggin](https://github.com/markwomack/ArduinoLogging)) and running 'normal operations' ([TaskManager](https://github.com/markwomack/TaskManager)). You can add those libraries to your Arduino environment or just remove/replace the code.
+- I use a couple of my own libraries for printing debug messages ([ArduinoLogging](https://github.com/markwomack/ArduinoLogging)) and running 'normal operations' ([TaskManager](https://github.com/markwomack/TaskManager)). You can add those libraries to your Arduino environment or just remove/replace the code.
 - This code is written to use the [Adafruit AirLift co-processor breakout](https://www.adafruit.com/product/4201) to connect to WiFi, but just about any ESP32 based board will work. Please see the pin_assignments.h file for the expected pin connections in the circuit.<br/>
 **IMPORTANT NOTE**: The AirLift board is required to be powered by 5v power, not 3.3v, for this example. When using 3.3v multiple restarts somehow put the AirLift (and other ESP32 based boards) into a bad state where it just continuously causes a restart when reconecting to WiFi. YMMV, but that has been my experience.
 - This code is Teensy specific. See the FlasherX documentation for information on the specific Teensy models it supports. I have tested it on a Teensy 4.0 and plan to use it on a Teensy 4.1.
-- I included the FlasherX code directly in this example since it it is not currently pacakged as a library. You may want to check the FlasherX github for the latest version. The only modification I had to make on the FlasherX code was to comment out the code in the update_firmware method that asked for user confirmation before performing the update. Otherwise everything is the original code.
+- I included the FlasherX code directly in this example since it it is not currently pacakged as a library. You may want to check the FlasherX github for the latest version. I made changes in the original FlasherX code to:
+  - Integrate usage of the CRCStream class into the update_firmware method.
+  - Comment out the code in the update_firmware method that asked for user confirmation before performing the update.
+  - Modified the parse_ascii_file method to detect data that has both a carraige return and a line feed at the end of each line, and then parse accordingly.
 - You'll need to know where the new, compiled code is located so that you can send it to the Teensy. Fortunately the Teensy Loader has a File->Open Hex File command that opens to the directory where the new .hex file is stored after compilation. This is typically a temporary, ephemeral location that will be cleaned up after the sketch or the Arduino IDE is closed. You can copy the .hex file to a different location if you want.
-- To send the new .hex file to the Teensy, you will need to send it to the TCP port the Teensy is monitoring. For Linux you can use the command line to cd into the directory that contains the .hex file and then execute the following command:<br/>
-<code>netcat -N [IP ADDRESS OF TEENSY] [TCP PORT OF TEENSY] <[HEX FILE NAME]</code><br/>
+- To send the new .hex file to the Teensy, you will need to send it to the TCP port the Teensy is monitoring. However, the .hex file needs a small modfication to prepend the .hex file size and CRC code to the beginning of the file. The modified .hex file can then be sent to the TCP port of the Teensy. The [script/tcpsend.sh](https://github.com/markwomack/TeensyOTAViaTCP/blob/main/scripts/tcpSend.sh) can be used to do all of this. The call looks like:<br/>
+<code>./scripts/tcpSend.sh [IP address of Teensy] [TCP port of Teensy] [path to TeensyOTAViaTCP.ino.hex file]</code><br/>
 For this example, it might look like this:<br/>
-<code>netcat -N 192.168.86.123 50005 <TeensyOTAViaTCP.ino.hex</code><br/>
+<code>./scripts/tcpSend.sh 192.168.90.120 50000 /tmp/arduino_build_123456/TeensyOTAViaTCP.ino.hex</code><br/>
 Running this command will send the data to the Teensy via the TCP
-port, the Teensy will see it and start the update process.
+port, the Teensy will see it and start the update process. It will use the size and CRC code to verify that the data was transmitted without errors.
 
 Caveats:
-- Besides the error detection provided by the underlying TCP protocol and the FlasherX code, there are no other protections in place for this example. If you are using this to build a high reliability, fault tolerant system it may behoove you to build in other protections and checks, such as, but not limited to, a CRC check. Otherwise you run the risk of bricking your Teensy in-the-wild.
+- In addition to whatever the TCP layer provides, this version provides a size and CRC check to guard against dropped or mangled data. You may want to introduce other
+measures to ensure that the data is correctly received. Otherwise you run the risk of bricking your Teensy in-the-wild.
+- The CRC code does not provide any privacy or security to the data being sent. Everyone can still see the data on the network. The CRC code only ensures that the data was probably
+sent correctly. It does not obscure or encode the data at all.
 - Similarly, there are no security protocols used in this example. Anyone on your network can access the TCP port and push any data they want to it. In the real world you will want to add some appropriate security to prevent unwanted access.

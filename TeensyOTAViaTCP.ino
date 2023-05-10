@@ -100,6 +100,7 @@ extern "C" {
 }
 
 void performUpdate(WiFiClient tcpClient);
+CRCStream* getCRCStream(WiFiClient* tcpClient);
 
 MyNetworkHub networkHub;
 
@@ -112,8 +113,8 @@ class CheckForOTATask : public Task {
       _tcpServer = tcpServer;
     }
 
-    WiFiClient getTCPClient(void) {
-      return _tcpClient;
+    WiFiClient* getTCPClient(void) {
+      return &_tcpClient;
     }
     
     void start(void) { 
@@ -183,21 +184,33 @@ void loop() {
     // stop normal operation
     taskManager.stop();
 
+    WiFiClient* tcpClient = checkForOTATask.getTCPClient();
+    CRCStream* updateStream = getCRCStream(tcpClient);
+
+    if (!updateStream) {
+      tcpClient->stop();
+
+      // Soft abort, can restart TaskManager
+      taskManager.start();
+      
+      return;
+    }
+    
     // perform the OTA update
-    performUpdate(checkForOTATask.getTCPClient());
+    performUpdate(updateStream);
   }
 }
 
 // Performs the actual firmware update using the FlasherX
 // methods.
-void performUpdate(WiFiClient tcpClient) {
+void performUpdate(CRCStream* updateStream) {
   uint32_t buffer_addr;
   uint32_t buffer_size;
 
   // create flash buffer to hold new firmware
   if (firmware_buffer_init( &buffer_addr, &buffer_size ) == 0) {
-    Serial.printf( "unable to create buffer\n" );
-    Serial.flush();
+    DebugMsgs.debug().println("unable to create buffer");
+    DebugMsgs.flush();
     return;
   }
   
@@ -205,12 +218,61 @@ void performUpdate(WiFiClient tcpClient) {
    buffer_size/1024, IN_FLASH(buffer_addr) ? "FLASH" : "RAM",
     buffer_addr, buffer_addr + buffer_size );
 
-  update_firmware((Stream*)&tcpClient, (Stream*)&Serial, buffer_addr, buffer_size);
+  update_firmware(updateStream, (Stream*)&Serial, buffer_addr, buffer_size);
   
   // return from update_firmware() means error, so clean up and
   // reboot to ensure that static vars get boot-up initialized before retry
-  Serial.printf( "erase FLASH buffer / free RAM buffer...\n" );
+  DebugMsgs.debug().println("erase FLASH buffer / free RAM buffer...restarting in 5 seconds");
   firmware_buffer_free( buffer_addr, buffer_size );
-  Serial.flush();
+  DebugMsgs.flush();
+  delay(5000);
   REBOOT;
+}
+
+CRCStream* getCRCStream(WiFiClient* tcpClient) {
+  DebugMsgs.debug().println("Reading expected size and CRC");
+
+  uint32_t expectedSize = 0;
+  uint32_t expectedCRC = 0;
+  
+  uint8_t buffer[25];
+  int count = 0;
+  while (tcpClient->available()) {
+    int data = tcpClient->read();
+    if (data != -1) {
+      if (data == '!') {
+        buffer[count] = 0;
+        expectedSize = strtoul((const char*)buffer, 0, 10);
+        break;
+      } else {
+        buffer[count++] = (uint8_t)data;
+      }
+    }
+  }
+
+  if (expectedSize == 0) {
+    DebugMsgs.debug().println("Error reading the expected size, aborted");
+    return 0;
+  }
+
+  count = 0;
+  while (tcpClient->available()) {
+    count += tcpClient->readBytes(buffer + count, 9 - count);
+    if (count == 9) {
+      if (buffer[8] == '!') {
+        buffer[8] = 0;
+        expectedCRC = strtoul((const char*)buffer, 0, 16);
+      }
+      break;
+    }
+  }
+
+  if (expectedCRC == 0) {
+    DebugMsgs.error().println("Error reading the expected crc, aborted");
+    return 0;
+  }
+
+  DebugMsgs.debug().printfln("Expected size: %d, expected CRC: %x", expectedSize, expectedCRC);
+  
+  return new CRCStream(tcpClient, expectedSize, expectedCRC);
 }

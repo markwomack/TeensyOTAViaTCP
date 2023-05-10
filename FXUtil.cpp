@@ -2,6 +2,7 @@
 // FXUTIL.H -- FlasherX utility functions
 //******************************************************************************
 #include <Arduino.h>
+#include "CRCStream.h"
 extern "C" {
   #include "FlashTxx.h"		// TLC/T3x/T4x/TMM flash primitives
 }
@@ -27,7 +28,7 @@ typedef struct {	//
 //******************************************************************************
 // hex_info_t	struct for hex record and hex file info
 //******************************************************************************
-void read_ascii_line( Stream *serial, char *line, int maxbytes );
+void read_ascii_line( Stream *serial, char *line, int maxbytes, bool* streamHasCRLF );
 int  parse_hex_line( const char *theline, char *bytes,
 	unsigned int *addr, unsigned int *num, unsigned int *code );
 int  process_hex_record( hex_info_t *hex );
@@ -37,8 +38,7 @@ void update_firmware( Stream *in, Stream *out,
 //******************************************************************************
 // update_firmware()	read hex file and write new firmware to program flash
 //******************************************************************************
-void update_firmware( Stream *in, Stream *out, 
-				uint32_t buffer_addr, uint32_t buffer_size )
+void update_firmware( CRCStream *in, Stream *out, uint32_t buffer_addr, uint32_t buffer_size )
 {
   static char line[96];					// buffer for hex lines
   static char data[32] __attribute__ ((aligned (8)));	// buffer for hex data
@@ -50,10 +50,12 @@ void update_firmware( Stream *in, Stream *out,
 
   out->printf( "reading hex lines...\n" );
 
+  bool streamHasCRLF = false;
+  
   // read and process intel hex lines until EOF or error
   while (!hex.eof)  {
 
-    read_ascii_line( in, line, sizeof(line) );
+    read_ascii_line( in, line, sizeof(line), &streamHasCRLF);
     // reliability of transfer via USB is improved by this printf/flush
     if (in == out && out == (Stream*)&Serial) {
       out->printf( "%s\n", line );
@@ -80,14 +82,22 @@ void update_firmware( Stream *in, Stream *out,
         int error = flash_write_block( addr, hex.data, hex.num );
         if (error) {
           out->printf( "abort - error %02X in flash_write_block()\n", error );
-	  return;
+	        return;
         }
       }
     }
     hex.lines++;
   }
-    
-  out->printf( "\nhex file: %1d lines %1lu bytes (%08lX - %08lX)\n",
+  
+  if (!in->sizeAndCRCMatch()) {
+    out->printf( "abort - data size or CRC does not match expected\n" );
+    out->printf( "Expected size: %d, actual: %d\n", in->getExpectedSize(), in->getCurrentSize());
+    out->printf( "Expected CRC: %x, actual: %x\n", in->getExpectedCRC(), in->getCurrentCRC());
+    return;
+  }
+
+  out->printf( "\ndata size: %d, data CRC: %x\n", in->getCurrentSize(), in->getCurrentCRC());
+  out->printf( "hex file: %1d lines %1lu bytes (%08lX - %08lX)\n",
 			hex.lines, hex.max-hex.min, hex.min, hex.max );
 
   // check FSEC value in new code -- abort if incorrect
@@ -125,8 +135,9 @@ void update_firmware( Stream *in, Stream *out,
 //    return;
 //  }
 //  else {
-    out->printf( "calling flash_move() to load new firmware...\n" );
+    out->printf( "calling flash_move() to load new firmware in 5 seconds...\n" );
     out->flush();
+    delay(5000);
 //  }
   
   // move new program from buffer to flash, free buffer, and reboot
@@ -139,13 +150,15 @@ void update_firmware( Stream *in, Stream *out,
 //******************************************************************************
 // read_ascii_line()	read ascii characters until '\n', '\r', or max bytes
 //******************************************************************************
-void read_ascii_line( Stream *serial, char *line, int maxbytes )
+void read_ascii_line( Stream *serial, char *line, int maxbytes, bool* streamHasCRLF )
 {
   int c=0, nchar=0;
   while (serial->available()) {
     c = serial->read();
-    if (c == '\n' || c == '\r')
+    if (c == '\n' || c == '\r') {
+      *streamHasCRLF = true;
       continue;
+    }
     else {
       line[nchar++] = c;
       break;
@@ -158,6 +171,11 @@ void read_ascii_line( Stream *serial, char *line, int maxbytes )
     }
   }
   line[nchar-1] = 0;	// null-terminate
+
+  // drop the extra cr/lf now
+  if (*streamHasCRLF && serial->available()) {
+    serial->read();
+  }
 }
 
 //******************************************************************************

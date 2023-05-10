@@ -10,7 +10,6 @@
 // Local includes
 #include "CRCStream.h"
 
-
 CRCStream::CRCStream(Stream* stream, uint32_t expectedSize, uint32_t expectedCRC) {
   _stream = stream;
   _expectedSize = expectedSize;
